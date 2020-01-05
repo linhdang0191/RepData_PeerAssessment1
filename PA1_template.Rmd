@@ -1,25 +1,245 @@
----
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
----
+# Reproducible Research by JHU: Peer Assessment 1
 
+#### Linh Dang - 5 Jan 2020  
 
-## Loading and preprocessing the data
+This is my submission for the first project in "Reproducible Research" by JHU on Coursera. The data used is `activity.csv`, which is unzipped from this zip file: [activity.zip](https://github.com/linhdang0191/RepData_PeerAssessment1/blob/master/activity.zip)
 
+For more information about the data, read [README](https://github.com/linhdang0191/RepData_PeerAssessment1/blob/master/README.md).
 
+## Loading and Preprocessing Data
+Assume that we already have `activity.csv` in the working directory, use `read.csv()` to read it. 
+
+```{r read_data}
+# Read the data
+data <- read.csv('activity.csv')
+```
+
+We obtaine a dataframe containing 17,568 observations with 3 variables: `steps`,`date`, and `interval`.
+
+```{r}
+str(data)
+```
+
+Import necessary packages:
+```{r message = FALSE, warning = FALSE}
+library(dplyr) # for easier data manipulation
+library(ggplot2) # for plotting
+```
 
 ## What is mean total number of steps taken per day?
 
+1. Calculate total number of steps taken per day
 
+2. Make a histogram of total number of steps taken per day
+
+3. Calculate the mean and median of total number of steps taken per day
+
+First, let's create a new dataset with sum of steps taken per day.
+
+```{r stepPerDay}
+stepPerDay <- data %>% group_by(date) %>% summarise(steps = sum(steps))
+```
+
+
+We obtain a dataframe with 61 observations and 2 variables (with some NA rows).
+
+```{r}
+stepPerDay
+```
+
+
+Then make a histogram.
+
+```{r plot1, message = FALSE, warning = FALSE}
+g <- ggplot(stepPerDay, aes(steps)) + geom_histogram(col = 'darkred', fill = 'pink', binwidth = 1000) +  labs(title = "Histogram Of Steps Taken Per Day", x = "Steps", y = "Frequency") + theme(plot.title = element_text(hjust = 0.5)) + scale_x_continuous(breaks = seq(0,20000,2500)) + scale_y_continuous(breaks = seq(0,20,2))
+# Show the plot
+g
+```
+
+
+Mean and median of the total number of steps taken per day (ignore the NAs).
+
+```{r mean_and_median1}
+# Mean 
+mean(stepPerDay$steps, na.rm = TRUE)
+
+# Median
+median(stepPerDay$steps, na.rm = TRUE)
+```
+
+As we can observe, the mean and median are 2 close values. 
 
 ## What is the average daily activity pattern?
 
+1. Make a time-serie plot of 5-minute interval (x-axis) and the averaged steps taken across all days (y-axis)
 
+2. Find the interval containing the maximum number of steps
+
+Let's create a new dataframe aggregating number of steps taken in each interval and calculate their average values.
+
+
+```{r stepPerInterval}
+stepPerInterval <- data %>% group_by(interval) %>% summarise(averageStep = mean(steps,na.rm = TRUE))
+```
+
+
+We obtain a new dataframe with 288 observations and 2 variables.
+
+```{r}
+str(stepPerInterval)
+```
+
+
+Make a time-serie plot of 5-minute interval and the averaged steps taken across all days.
+
+```{r plot2}
+g1 <- ggplot(stepPerInterval, aes(interval,averageStep)) + geom_line(col = "darkred") + labs(title = "Average Step Taken Per Interval", x = "Interval", y = "Average Step") + theme(plot.title = element_text(hjust = 0.5)) + scale_x_continuous(breaks = seq(0,4000,500))
+# Show the plot 
+g1
+```
+
+Find the interval containing maximum number of steps.
+
+```{r}
+stepPerInterval[which.max(stepPerInterval$averageStep),]
+```
+
+The interval `835` contains the maximum number of steps (`206.1698113`).
 
 ## Imputing missing values
 
+1. Calculate and report the number of missing values in the dataset
 
+2. Devise a strategy to fill in missing values
+
+3. Create a new dataset with missing values filled in 
+
+4. Make a histogram with the total number of steps taken per day, calculate mean and median with the new dataset
+
+
+Observing the original dataset, we could conclude that the only column with NAs is `steps`. Therefore, we could apply `is.na()` on `steps` only. 
+
+Since `is.na()` will label rows with NA as `TRUE` and the other with `FALSE`, use `sum()` to calculate the number of NAs.
+
+
+```{r num_NA}
+sum(is.na(data$steps))
+```
+
+
+It is optional, but I would calculate the percentage of NAs in the original dataset.
+
+
+```{r}
+sum(is.na(data$steps))/NROW(data$steps)
+```
+
+About 13% values of `steps` are NAs. 
+
+To impute missing values, there are multiple strategies to choose from. One common option to deal with numerical missing values is filling them with suitable means/medians. 
+
+However, I would use a method called MICE (Multivariate Imputation by Chained Equation), which enables us to fill in NAs with more "reasonable" values. 
+
+For more information, please reference to this [paper](https://www.jstatsoft.org/article/view/v045i03) and [R Documentation for mice](https://www.rdocumentation.org/packages/mice/versions/3.7.0/topics/mice).
+
+To use this method, let's import `mice`
+
+```{r message = FALSE, warning = FALSE}
+library(mice)
+```
+
+Fill in NAs and create a new dataset. The process will take a while. 
+
+```{r completeData, message = FALSE, warning = FALSE}
+completeData <- complete(mice(data),1)
+```
+
+We receive a new dataset which is equal to the original dataset with missing values filled in. 
+
+```{r}
+str(completeData)
+```
+
+
+Now, we make a histogram of total number of steps taken per day with the new dataset.  
+
+Create a dataframe with total number of steps taken per day.
+
+```{r c_stepPerDay}
+c_stepPerDay <- completeData %>% group_by(date) %>% summarise(steps = sum(steps))
+```
+
+Make a new histogram.
+
+```{r plot3}
+g2 <- ggplot(c_stepPerDay, aes(steps)) + geom_histogram(col = 'darkgreen', fill = 'lightgreen', binwidth = 1000) +  labs(title = "Histogram Of Steps Taken Per Day", x = "Steps", y = "Frequency") + theme(plot.title = element_text(hjust = 0.5)) + scale_x_continuous(breaks = seq(0,20000,2500)) + scale_y_continuous(breaks = seq(0,20,2))
+# Show the plot
+g2
+```
+
+By imputing missing values, we could see some changes are introduced to the histogram. To be more specific, we could see how the steps 0 - 2500 and 7500 - 10000 - 12500 has changed, which means the imputation has altered the frequency of some ranges of step in the dataset. 
+
+
+Calculate the mean and median of total number of steps taken per day.
+
+```{r mean_and_median2}
+# Mean
+mean(c_stepPerDay$steps)
+# Median 
+median(c_stepPerDay$steps)
+```
+
+
+The difference between mean and median in the new dataset is bigger than in the original dataset.
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+1. Create a new factor variable with 2 levels: `weekday` and `weekend`.
+
+2. Make a panel time-serie plot containing the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis)
+
+
+My approach for the factor variable is: create a vector to indicate weekdays; use that vector to create a factor based on logical value returend from the condition (if values returned by `weekdays()` is in the `weekdays` vector, then it is `weekday`, else, it is `weekend`)
+
+
+```{r factor_weekday}
+completeData$date <- as.Date(completeData$date)
+
+# create a vector to indicate weekdays 
+weekdays <- c('Monday', "Tuesday", "Wednesday", "Thursday", "Friday")
+
+# create a column indicating day type 
+completeData$dayType <- factor(weekdays(completeData$date) %in% weekdays, levels = c(TRUE,FALSE), labels = c("weekday", "weekend"))
+
+# I create one more new column to indicate the day name
+completeData$day <- factor(weekdays(completeData$date))
+```
+
+We now check if the factor variables have been created.
+
+```{r}
+str(completeData)
+```
+
+To make the panel containing time-serie plots, first we create a new dataframe of 5-minute interval with averaged steps taken across weekdays and weekends. 
+
+```{r day_stepPerInterval}
+day_stepPerInterval <- completeData %>% group_by(interval,dayType) %>% summarise(averageStep = mean(steps))
+```
+
+The result is a datafram containg 576 observations and 3 variables. 
+
+``` {r}
+str(day_stepPerInterval)
+```
+
+Make the plot.
+
+```{r plot4}
+g3 <- ggplot(day_stepPerInterval,aes(interval,averageStep)) + geom_line(col = "darkblue") + facet_grid(dayType~.) + labs(title = "Average Step Taken Per Interval", x = "Interval", y = "Average Step") + theme(plot.title = element_text(hjust = 0.5))
+# Show the plot
+g3
+```
+
+Okay, done!
+
